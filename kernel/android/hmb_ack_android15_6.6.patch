@@ -40,18 +40,10 @@ index 000000000..ed65eb2f8
 +
 +#endif /* _LINUX_HMB_PAGEFILE_H */
 diff --git a/mm/Kconfig b/mm/Kconfig
-index 54f595659..19636cf9f 100644
+index 54f595659..e73e433b5 100644
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
-@@ -366,6 +366,7 @@ config RANDOM_KMALLOC_CACHES
- 	  limited degree of memory and CPU overhead that relates to hardware and
- 	  system workload.
- 
-+
- endmenu # SLAB allocator options
- 
- config SHUFFLE_PAGE_ALLOCATOR
-@@ -1356,4 +1357,17 @@ config LOCK_MM_AND_FIND_VMA
+@@ -1356,4 +1356,17 @@ config LOCK_MM_AND_FIND_VMA
  
  source "mm/damon/Kconfig"
  
@@ -80,10 +72,10 @@ index a7f9d4f67..56355274b 100644
 +obj-$(CONFIG_HMB_PAGEFILE) += hmb_pagefile.o
 diff --git a/mm/hmb_pagefile.c b/mm/hmb_pagefile.c
 new file mode 100644
-index 000000000..c0abc71b3
+index 000000000..98abcc28d
 --- /dev/null
 +++ b/mm/hmb_pagefile.c
-@@ -0,0 +1,381 @@
+@@ -0,0 +1,378 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Haven Memory Bus (HMB) Spec 2.0 — Android Common Kernel (ACK) Paging Engine
@@ -255,7 +247,6 @@ index 000000000..c0abc71b3
 +	folio_mark_uptodate(folio);
 +	return true;
 +}
-+EXPORT_SYMBOL_GPL(hmb_pagefile_store);
 +
 +/*
 + * Load Folio: Direct VMM read bypass
@@ -320,7 +311,6 @@ index 000000000..c0abc71b3
 +
 +	return false;
 +}
-+EXPORT_SYMBOL_GPL(hmb_pagefile_load);
 +
 +/*
 + * Free Slot: Lock-free atomic bitmask clearing
@@ -353,7 +343,6 @@ index 000000000..c0abc71b3
 +
 +	atomic64_inc(&plane->stats.frees);
 +}
-+EXPORT_SYMBOL_GPL(hmb_pagefile_free);
 +
 +/*
 + * Procfs Telemetry Interface: /proc/hmb_pagefile
