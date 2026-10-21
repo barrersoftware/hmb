@@ -1,39 +1,40 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Haven Memory Bus (HMB) - Native In-Tree Paging Engine
- * Implementation of HMB Spec 2.0 for Linux Kernel 7.0 VMM
+ * Haven Memory Bus (HMB) Spec 2.0 — In-Tree Native Linux Kernel Paging Engine
  *
- * Copyright (C) 2026 Daniel Barrer / Barrer Software Org.
+ * Copyright (C) 2026 Barrer Software. All rights reserved.
+ * Author: ssfdre38 <ssfdre38@gmail.com>
  *
- * Directly integrated into:
- *  - mm/page_io.c: swap_writepage() and swap_read_folio()
- *  - mm/swapfile.c: swap_entry_free() / swap_free()
- *
- * Eliminates block layer overhead, bio allocation, and scheduler latency.
+ * Implements high-performance Virtual Memory paging with zero-bio bypass,
+ * Tier 2 z-Pack inline pattern deduplication, and lock-free 64-bit atomic bitmask metadata.
  */
 
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/swap.h>
-#include <linux/swapops.h>
+#include <linux/swapfile.h>
 #include <linux/pagemap.h>
 #include <linux/highmem.h>
-#include <linux/slab.h>
-#include <linux/vmalloc.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/slab.h>
+#include <linux/vmalloc.h>
+#include <linux/bitmap.h>
+#include <linux/spinlock.h>
+#include <linux/atomic.h>
 #include <linux/hmb_pagefile.h>
 
-#define HMB_PAGEFILE_MAX_PAGES (1048576UL) /* 4 GB virtual swap plane */
+#define HMB_PAGEFILE_MAX_PAGES (HMB_PLANE_SIZE_BYTES >> PAGE_SHIFT)
 
-struct hmb_pagefile_stats {
+struct hmb_stats {
 	atomic64_t reads;
 	atomic64_t writes;
 	atomic64_t frees;
 	atomic64_t zero_hits;
 	atomic64_t pattern_hits;
-	atomic64_t raw_pages;
+	atomic64_t raw_allocs;
 	atomic64_t bytes_saved;
 };
 
@@ -45,20 +46,21 @@ struct hmb_pagefile_plane {
 	u64 *patterns;
 	struct page **raw_pages;
 	spinlock_t lock;
-	struct hmb_pagefile_stats stats;
+	struct hmb_stats stats;
 };
 
-static struct hmb_pagefile_plane *g_hmb_plane;
-static struct proc_dir_entry *g_hmb_proc_entry;
+static struct hmb_pagefile_plane *global_hmb_plane;
 
-static inline bool hmb_is_uniform_64(const void *kaddr, u64 *out_val)
+/*
+ * Fast inline pattern detector for Tier 2 z-Pack compression
+ */
+static inline bool hmb_is_uniform_pattern(const u64 *buf, size_t count, u64 *out_val)
 {
-	const u64 *words = (const u64 *)kaddr;
-	u64 first = words[0];
-	int i;
+	u64 first = buf[0];
+	size_t i;
 
-	for (i = 1; i < (PAGE_SIZE / sizeof(u64)); i++) {
-		if (words[i] != first)
+	for (i = 1; i < count; i++) {
+		if (buf[i] != first)
 			return false;
 	}
 	*out_val = first;
@@ -66,36 +68,32 @@ static inline bool hmb_is_uniform_64(const void *kaddr, u64 *out_val)
 }
 
 /*
- * Store Folio: Fast-path evaluation of Tier 2 z-Pack inline deduplication
- * Returns true if folio handled in-memory by HMB, false to fallback to block I/O.
+ * Store Folio: Direct VMM write bypass
  */
 bool hmb_pagefile_store(struct folio *folio)
 {
-	struct hmb_pagefile_plane *plane = g_hmb_plane;
-	swp_entry_t entry;
-	unsigned long pgoff;
-	void *kaddr;
-	u64 val = 0;
-	struct page *p = NULL;
-	struct page *old_p = NULL;
+	struct hmb_pagefile_plane *plane = global_hmb_plane;
+	pgoff_t pgoff;
+	void *src;
+	u64 val;
+	bool is_uniform;
+	struct page *new_p, *old_p;
+	void *dst;
 
 	if (unlikely(!plane))
 		return false;
 
-	entry = folio->swap;
-	pgoff = swp_offset(entry);
-
+	pgoff = folio->index;
 	if (unlikely(pgoff >= plane->total_pages))
 		return false;
 
-	kaddr = kmap_local_folio(folio, 0);
+	src = kmap_local_folio(folio, 0);
+	is_uniform = hmb_is_uniform_pattern((const u64 *)src, PAGE_SIZE / sizeof(u64), &val);
+	kunmap_local(src);
 
-	/* Tier 2 z-Pack: Check 64-bit Quadword Uniformity */
-	if (hmb_is_uniform_64(kaddr, &val)) {
-		kunmap_local(kaddr);
-
+	if (is_uniform) {
 		if (val == 0) {
-			/* 100% Zero-Page: Stored as 1 single bit */
+			/* Zero page: 100% deduplicated */
 			set_bit(pgoff, plane->zero_bitmap);
 			clear_bit(pgoff, plane->pattern_bitmap);
 			clear_bit(pgoff, plane->allocated_bitmap);
@@ -114,60 +112,57 @@ bool hmb_pagefile_store(struct folio *folio)
 
 			folio_mark_uptodate(folio);
 			return true;
-		} else {
-			/* Repeating Quadword: Stored in 8 bytes */
-			plane->patterns[pgoff] = val;
-			set_bit(pgoff, plane->pattern_bitmap);
-			clear_bit(pgoff, plane->zero_bitmap);
-			clear_bit(pgoff, plane->allocated_bitmap);
-
-			spin_lock(&plane->lock);
-			old_p = plane->raw_pages[pgoff];
-			plane->raw_pages[pgoff] = NULL;
-			spin_unlock(&plane->lock);
-
-			if (old_p)
-				__free_page(old_p);
-
-			atomic64_inc(&plane->stats.pattern_hits);
-			atomic64_add(PAGE_SIZE - sizeof(u64), &plane->stats.bytes_saved);
-			atomic64_inc(&plane->stats.writes);
-
-			folio_mark_uptodate(folio);
-			return true;
 		}
-	}
 
-	/* Incompressible Raw Page: Tier 1 Fixed Stride Allocation */
-	spin_lock(&plane->lock);
-	p = plane->raw_pages[pgoff];
-	if (!p) {
-		spin_unlock(&plane->lock);
-		p = alloc_page(GFP_NOWAIT | __GFP_HIGHMEM);
-		if (!p) {
-			kunmap_local(kaddr);
-			return false; /* Memory pressure fallback to block swap */
-		}
+		/* Repeating Quadword: Stored in 8 bytes */
+		plane->patterns[pgoff] = val;
+		set_bit(pgoff, plane->pattern_bitmap);
+		clear_bit(pgoff, plane->zero_bitmap);
+		clear_bit(pgoff, plane->allocated_bitmap);
+
 		spin_lock(&plane->lock);
-		if (!plane->raw_pages[pgoff]) {
-			plane->raw_pages[pgoff] = p;
-		} else {
-			__free_page(p);
-			p = plane->raw_pages[pgoff];
-		}
+		old_p = plane->raw_pages[pgoff];
+		plane->raw_pages[pgoff] = NULL;
+		spin_unlock(&plane->lock);
+
+		if (old_p)
+			__free_page(old_p);
+
+		atomic64_inc(&plane->stats.pattern_hits);
+		atomic64_add(PAGE_SIZE - sizeof(u64), &plane->stats.bytes_saved);
+		atomic64_inc(&plane->stats.writes);
+
+		folio_mark_uptodate(folio);
+		return true;
 	}
-	get_page(p);
+
+	/* Tier 1: Raw Stride Allocation */
+	new_p = alloc_page(GFP_NOWAIT | __GFP_NOWARN | __GFP_HIGHMEM);
+	if (unlikely(!new_p)) {
+		new_p = alloc_page(GFP_ATOMIC | __GFP_NOWARN | __GFP_HIGHMEM);
+		if (unlikely(!new_p))
+			return false;
+	}
+
+	src = kmap_local_folio(folio, 0);
+	dst = kmap_local_page(new_p);
+	memcpy(dst, src, PAGE_SIZE);
+	kunmap_local(dst);
+	kunmap_local(src);
+
+	spin_lock(&plane->lock);
+	old_p = plane->raw_pages[pgoff];
+	plane->raw_pages[pgoff] = new_p;
 	spin_unlock(&plane->lock);
 
-	memcpy_to_page(p, 0, kaddr, PAGE_SIZE);
-	kunmap_local(kaddr);
-	put_page(p);
+	if (old_p)
+		__free_page(old_p);
 
+	set_bit(pgoff, plane->allocated_bitmap);
 	clear_bit(pgoff, plane->zero_bitmap);
 	clear_bit(pgoff, plane->pattern_bitmap);
-	set_bit(pgoff, plane->allocated_bitmap);
 
-	atomic64_inc(&plane->stats.raw_pages);
+	atomic64_inc(&plane->stats.raw_allocs);
 	atomic64_inc(&plane->stats.writes);
 
 	folio_mark_uptodate(folio);
@@ -176,27 +171,23 @@ bool hmb_pagefile_store(struct folio *folio)
 EXPORT_SYMBOL_GPL(hmb_pagefile_store);
 
 /*
- * Load Folio: Nanosecond #PF page fault recovery
- * Returns true if folio recovered from HMB, false to read from disk.
+ * Load Folio: Direct VMM read bypass
  */
 bool hmb_pagefile_load(struct folio *folio)
 {
-	struct hmb_pagefile_plane *plane = g_hmb_plane;
-	swp_entry_t entry;
-	unsigned long pgoff;
-	struct page *p = NULL;
+	struct hmb_pagefile_plane *plane = global_hmb_plane;
+	pgoff_t pgoff;
 	void *dst;
+	struct page *p;
 
 	if (unlikely(!plane))
 		return false;
 
-	entry = folio->swap;
-	pgoff = swp_offset(entry);
-
+	pgoff = folio->index;
 	if (unlikely(pgoff >= plane->total_pages))
 		return false;
 
-	/* Tier 2: Zero-Page Fast-Path */
+	/* Tier 2: Zero Page Fast-Path */
 	if (test_bit(pgoff, plane->zero_bitmap)) {
 		folio_zero_range(folio, 0, folio_size(folio));
 		folio_mark_uptodate(folio);
@@ -207,6 +198,7 @@ bool hmb_pagefile_load(struct folio *folio)
 	/* Tier 2: Pattern Page Fast-Path */
 	if (test_bit(pgoff, plane->pattern_bitmap)) {
 		u64 val = plane->patterns[pgoff];
+
 		dst = kmap_local_folio(folio, 0);
 		memset64(dst, val, PAGE_SIZE / sizeof(u64));
 		kunmap_local(dst);
@@ -225,6 +217,7 @@ bool hmb_pagefile_load(struct folio *folio)
 
 		if (p) {
 			void *src = kmap_local_page(p);
+
 			dst = kmap_local_folio(folio, 0);
 			memcpy(dst, src, PAGE_SIZE);
 			kunmap_local(dst);
@@ -245,8 +238,8 @@ EXPORT_SYMBOL_GPL(hmb_pagefile_load);
  */
 void hmb_pagefile_free(swp_entry_t entry)
 {
-	struct hmb_pagefile_plane *plane = g_hmb_plane;
-	unsigned long pgoff;
+	struct hmb_pagefile_plane *plane = global_hmb_plane;
+	pgoff_t pgoff;
 	struct page *p = NULL;
 
 	if (unlikely(!plane))
@@ -274,32 +267,38 @@ void hmb_pagefile_free(swp_entry_t entry)
 EXPORT_SYMBOL_GPL(hmb_pagefile_free);
 
 /*
- * /proc/hmb_pagefile Telemetry
+ * Procfs Telemetry Interface: /proc/hmb_pagefile
  */
 static int hmb_pagefile_proc_show(struct seq_file *m, void *v)
 {
-	struct hmb_pagefile_plane *plane = g_hmb_plane;
-	u64 reads = atomic64_read(&plane->stats.reads);
-	u64 writes = atomic64_read(&plane->stats.writes);
-	u64 frees = atomic64_read(&plane->stats.frees);
-	u64 zero_hits = atomic64_read(&plane->stats.zero_hits);
-	u64 pat_hits = atomic64_read(&plane->stats.pattern_hits);
-	u64 raw_pages = atomic64_read(&plane->stats.raw_pages);
-	u64 bytes_saved = atomic64_read(&plane->stats.bytes_saved);
-	u64 total_ops = reads + writes;
-	u64 total_comp = zero_hits + pat_hits;
-	u64 total_stored = total_comp + raw_pages;
+	struct hmb_pagefile_plane *plane = global_hmb_plane;
+	u64 reads, writes, frees, zero_hits, pat_hits, raw_pages, bytes_saved;
+	u64 total_stored;
+
+	if (!plane) {
+		seq_puts(m, "HMB Pagefile Engine: Inactive\n");
+		return 0;
+	}
+
+	reads = atomic64_read(&plane->stats.reads);
+	writes = atomic64_read(&plane->stats.writes);
+	frees = atomic64_read(&plane->stats.frees);
+	zero_hits = atomic64_read(&plane->stats.zero_hits);
+	pat_hits = atomic64_read(&plane->stats.pattern_hits);
+	raw_pages = atomic64_read(&plane->stats.raw_allocs);
+	bytes_saved = atomic64_read(&plane->stats.bytes_saved);
+	total_stored = zero_hits + pat_hits + raw_pages;
 
 	seq_puts(m, "================================================================================\n");
 	seq_puts(m, "  HAVEN MEMORY BUS (HMB) — IN-TREE LINUX KERNEL PAGING ENGINE (Spec 2.0)\n");
 	seq_puts(m, "  Mode: Native VMM Bypass (Zero Bio, Zero blk-mq, Pure Arithmetic)\n");
 	seq_puts(m, "================================================================================\n");
-	seq_printf(m, "Configured Plane:        %lu MB (%lu swap slots)\n",
-		   (plane->total_pages * PAGE_SIZE) >> 20, plane->total_pages);
+	seq_printf(m, "Configured Plane:        %u MB (%lu swap slots)\n",
+		   HMB_PLANE_SIZE_MB, plane->total_pages);
 	seq_printf(m, "Direct O(1) Page In:     %llu faults resolved\n", reads);
 	seq_printf(m, "Direct O(1) Page Out:    %llu pages evicted\n", writes);
 	seq_printf(m, "Lock-Free Slot Frees:    %llu slots\n", frees);
-	seq_printf(m, "Total VMM Paging Ops:    %llu\n", total_ops);
+	seq_printf(m, "Total VMM Paging Ops:    %llu\n", reads + writes);
 	seq_puts(m, "--------------------------------------------------------------------------------\n");
 	seq_puts(m, "[Tier 2 z-Pack In-RAM Deduplication Engine]\n");
 	seq_printf(m, "  Zero-Page Deduplication: %llu pages (100.0%% compression)\n", zero_hits);
@@ -309,6 +308,7 @@ static int hmb_pagefile_proc_show(struct seq_file *m, void *v)
 		   bytes_saved >> 20, bytes_saved >> 10);
 	if (total_stored > 0) {
 		u64 ratio_x10 = (total_stored * 10) / (raw_pages ? raw_pages : 1);
+
 		seq_printf(m, "  Effective Compression:   %llu.%llux Ratio\n",
 			   ratio_x10 / 10, ratio_x10 % 10);
 	}
@@ -335,11 +335,9 @@ int __init hmb_pagefile_init(void)
 
 	pr_info("HMB: Initializing Haven Memory Bus Native In-Tree Paging Engine...\n");
 
-	plane = kzalloc(sizeof(*plane), GFP_KERNEL);
-	if (!plane) {
-		pr_err("HMB: Failed to allocate plane descriptor\n");
+	plane = kzalloc_obj(plane, GFP_KERNEL);
+	if (!plane)
 		return -ENOMEM;
-	}
 
 	plane->total_pages = HMB_PAGEFILE_MAX_PAGES;
 	spin_lock_init(&plane->lock);
@@ -364,11 +362,17 @@ int __init hmb_pagefile_init(void)
 		return -ENOMEM;
 	}
 
-	g_hmb_plane = plane;
-	g_hmb_proc_entry = proc_create("hmb_pagefile", 0444, NULL, &hmb_pagefile_proc_fops);
+	global_hmb_plane = plane;
 
-	pr_info("HMB: Native In-Tree Paging Engine ONLINE (%lu MB, %lu slots). /proc/hmb_pagefile ready.\n",
-		(plane->total_pages * PAGE_SIZE) >> 20, plane->total_pages);
+	if (!proc_create("hmb_pagefile", 0444, NULL, &hmb_pagefile_proc_fops))
+		pr_warn("HMB: Failed to register /proc/hmb_pagefile telemetry\n");
+
+	pr_info("HMB: Native In-Tree Paging Engine ONLINE (%u MB, %lu slots). /proc/hmb_pagefile ready.\n",
+		HMB_PLANE_SIZE_MB, plane->total_pages);
 	return 0;
 }
 subsys_initcall(hmb_pagefile_init);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("ssfdre38 <ssfdre38@gmail.com>");
+MODULE_DESCRIPTION("Haven Memory Bus (HMB) Native In-Tree Paging Engine");
