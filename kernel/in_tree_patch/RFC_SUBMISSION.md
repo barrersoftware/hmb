@@ -2,7 +2,7 @@
 
 **To**: `linux-mm@kvack.org`, `linux-kernel@vger.kernel.org`  
 **Cc**: Andrew Morton <akpm@linux-foundation.org>, Matthew Wilcox <willy@infradead.org>, Johannes Weiner <hannes@cmpxchg.org>, Linus Torvalds <torvalds@linux-foundation.org>  
-**From**: Daniel Barrer <ssfdre38@gmail.com>  
+**From**: Daniel Elliott <ssfdre38@gmail.com>  
 **Date**: Wed, 21 Oct 2026 19:00:00 UTC  
 **Subject**: [RFC PATCH 0/1] mm: Haven Memory Bus (HMB) zero-bio paging engine with Tier 2 z-Pack deduplication  
 
@@ -115,6 +115,6 @@ The complete driver, in-tree kernel patches, and bare-metal benchmark test scrip
 We welcome feedback, suggestions for integration into mainline `mm/`, and discussions regarding Android Common Kernel (ACK) backports.
 
 Respectfully submitted,  
-**Daniel Barrer**  
+**Daniel Elliott**  
 *Barrer Software Organization*  
 <ssfdre38@gmail.com>

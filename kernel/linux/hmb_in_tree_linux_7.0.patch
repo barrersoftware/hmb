@@ -1,4 +1,4 @@
-From: Daniel Barrer <ssfdre38@gmail.com>
+From: Daniel Elliott <ssfdre38@gmail.com>
 Date: Wed, 21 Oct 2026 17:00:00 +0000
 Subject: [RFC PATCH] mm: Haven Memory Bus (HMB) zero-bio paging engine
 
@@ -9,7 +9,7 @@ Bypasses the generic block layer (struct bio, blk-mq, and elevator
 queues) in mm/page_io.c, resolving page faults in sub-microsecond
 O(1) arithmetic strides with Tier 2 z-Pack in-RAM deduplication.
 
-Signed-off-by: Daniel Barrer <ssfdre38@gmail.com>
+Signed-off-by: Daniel Elliott <ssfdre38@gmail.com>
 ---
 diff --git a/include/linux/hmb_pagefile.h b/include/linux/hmb_pagefile.h
 new file mode 100644
@@ -21,7 +21,7 @@ new file mode 100644
 + * Haven Memory Bus (HMB) - Native In-Tree Paging Engine
 + * Implementation of HMB Spec 2.0 for Linux Kernel 7.0 VMM
 + *
-+ * Copyright (C) 2026 Daniel Barrer / Barrer Software Org.
++ * Copyright (C) 2026 Daniel Elliott / Barrer Software Org.
 + */
 +
 +#ifndef _LINUX_HMB_PAGEFILE_H
@@ -441,7 +441,7 @@ diff --git a/MAINTAINERS b/MAINTAINERS
  F:	drivers/platform/x86/hdaps.c
  
 +HAVEN MEMORY BUS (HMB) PAGEFILE ENGINE
-+M:	Daniel Barrer <ssfdre38@gmail.com>
++M:	Daniel Elliott <ssfdre38@gmail.com>
 +L:	linux-mm@kvack.org
 +S:	Maintained
 +W:	https://github.com/barrersoftware/hmb

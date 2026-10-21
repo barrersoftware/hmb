@@ -52,7 +52,7 @@ if target in text:
 python3 -c '
 import subprocess
 
-header = \"\"\"From: Daniel Barrer <ssfdre38@gmail.com>
+header = \"\"\"From: Daniel Elliott <ssfdre38@gmail.com>
 Date: Wed, 21 Oct 2026 17:00:00 +0000
 Subject: [RFC PATCH] mm: Haven Memory Bus (HMB) zero-bio paging engine
 
@@ -63,7 +63,7 @@ Bypasses the generic block layer (struct bio, blk-mq, and elevator
 queues) in mm/page_io.c, resolving page faults in sub-microsecond
 O(1) arithmetic strides with Tier 2 z-Pack in-RAM deduplication.
 
-Signed-off-by: Daniel Barrer <ssfdre38@gmail.com>
+Signed-off-by: Daniel Elliott <ssfdre38@gmail.com>
 ---
 \"\"\"
 

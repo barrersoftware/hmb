@@ -9,7 +9,7 @@ index 0000000..5582f27
 + * Haven Memory Bus (HMB) - Native In-Tree Paging Engine
 + * Implementation of HMB Spec 2.0 for Linux Kernel 7.0 VMM
 + *
-+ * Copyright (C) 2026 Daniel Barrer / Barrer Software Org.
++ * Copyright (C) 2026 Daniel Elliott / Barrer Software Org.
 + */
 +
 +#ifndef _LINUX_HMB_PAGEFILE_H

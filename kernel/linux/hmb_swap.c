@@ -3,7 +3,7 @@
  * Haven Memory Bus (HMB) - Linux Swap Block Driver
  * Implementation of HMB Spec 2.0 Direct-Stride Swap Subsystem
  *
- * Copyright (C) 2026 Daniel Barrer / Barrer Software Org.
+ * Copyright (C) 2026 Daniel Elliott / Barrer Software Org.
  *
  * Key Architecture:
  * - O(1) Stride-Based Page Indexing: zero indirection, zero radix lookup.
@@ -484,6 +484,6 @@ module_init(hmb_swap_init);
 module_exit(hmb_swap_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Daniel Barrer <ssfdre38@gmail.com>");
+MODULE_AUTHOR("Daniel Elliott <ssfdre38@gmail.com>");
 MODULE_DESCRIPTION("Haven Memory Bus (HMB) Direct-Stride Swap Block Driver");
 MODULE_VERSION("2.0.0");

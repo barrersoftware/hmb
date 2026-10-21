@@ -3,7 +3,7 @@
  * Haven Memory Bus (HMB) - Native In-Tree Paging Engine
  * Implementation of HMB Spec 2.0 for Linux Kernel 7.0 VMM
  *
- * Copyright (C) 2026 Daniel Barrer / Barrer Software Org.
+ * Copyright (C) 2026 Daniel Elliott / Barrer Software Org.
  *
  * Directly integrated into:
  *  - mm/page_io.c: swap_writepage() and swap_read_folio()

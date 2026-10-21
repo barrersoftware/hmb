@@ -14,7 +14,7 @@ def main():
 
     # 1. Add MAINTAINERS entry on server if not present
     entry = """HAVEN MEMORY BUS (HMB) PAGEFILE ENGINE
-M:	Daniel Barrer <ssfdre38@gmail.com>
+M:	Daniel Elliott <ssfdre38@gmail.com>
 L:	linux-mm@kvack.org
 S:	Maintained
 W:	https://github.com/barrersoftware/hmb
@@ -23,7 +23,7 @@ F:	mm/hmb_pagefile.c
 """
     cmd = """
 if ! grep -q 'HAVEN MEMORY BUS' /home/ubuntu/linux-7.0.0/MAINTAINERS; then
-    sed -i '/^HARDWARE MONITORING/i HAVEN MEMORY BUS (HMB) PAGEFILE ENGINE\\nM:\\tDaniel Barrer <ssfdre38@gmail.com>\\nL:\\tlinux-mm@kvack.org\\nS:\\tMaintained\\nW:\\thttps://github.com/barrersoftware/hmb\\nF:\\tinclude/linux/hmb_pagefile.h\\nF:\\tmm/hmb_pagefile.c\\n' /home/ubuntu/linux-7.0.0/MAINTAINERS
+    sed -i '/^HARDWARE MONITORING/i HAVEN MEMORY BUS (HMB) PAGEFILE ENGINE\\nM:\\tDaniel Elliott <ssfdre38@gmail.com>\\nL:\\tlinux-mm@kvack.org\\nS:\\tMaintained\\nW:\\thttps://github.com/barrersoftware/hmb\\nF:\\tinclude/linux/hmb_pagefile.h\\nF:\\tmm/hmb_pagefile.c\\n' /home/ubuntu/linux-7.0.0/MAINTAINERS
 fi
 """
     stdin, stdout, stderr = c.exec_command(cmd)

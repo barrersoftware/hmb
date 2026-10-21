@@ -14,7 +14,7 @@ with open(HMB_SOURCE, "r", encoding="utf-8") as f:
 
 # Build git-style patch lines
 patch = []
-patch.append("From: Daniel Barrer <ssfdre38@gmail.com>")
+patch.append("From: Daniel Elliott <ssfdre38@gmail.com>")
 patch.append("Date: Wed, 21 Oct 2026 17:00:00 +0000")
 patch.append("Subject: [RFC PATCH] mm: Haven Memory Bus (HMB) zero-bio paging engine")
 patch.append("")
@@ -25,7 +25,7 @@ patch.append("Bypasses the generic block layer (struct bio, blk-mq, and elevator
 patch.append("queues) in mm/page_io.c, resolving page faults in sub-microsecond")
 patch.append("O(1) arithmetic strides with Tier 2 z-Pack in-RAM deduplication.")
 patch.append("")
-patch.append("Signed-off-by: Daniel Barrer <ssfdre38@gmail.com>")
+patch.append("Signed-off-by: Daniel Elliott <ssfdre38@gmail.com>")
 patch.append("---")
 patch.append(" MAINTAINERS                  |   8 +")
 patch.append(" include/linux/hmb_pagefile.h |  32 +++")
@@ -47,7 +47,7 @@ patch.append("@@ -9500,6 +9500,14 @@ F:\tdrivers/media/platform/nxp/imx8-isi/")
 patch.append(" F:\tDocumentation/devicetree/bindings/media/nxp,imx8-isi.yaml")
 patch.append(" ")
 patch.append("+HAVEN MEMORY BUS (HMB) PAGEFILE ENGINE")
-patch.append("+M:\tDaniel Barrer <ssfdre38@gmail.com>")
+patch.append("+M:\tDaniel Elliott <ssfdre38@gmail.com>")
 patch.append("+L:\tlinux-mm@kvack.org")
 patch.append("+S:\tMaintained")
 patch.append("+W:\thttps://github.com/barrersoftware/hmb")
