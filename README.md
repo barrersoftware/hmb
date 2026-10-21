@@ -35,10 +35,10 @@ Traditional software manages virtual memory and swap through layers of indirecti
 
 Haven Memory Bus completely eliminates metadata indirection. Finding any page, record, or tensor slab is **pure mathematics**:
 
-$$\text{Memory\_Offset} = \text{Base\_Offset} + (\text{Index} \times \text{Stride})$$
+$$\text{Memory Offset} = \text{Base Offset} + (\text{Index} \times \text{Stride})$$
 
 For disk/swap addressing:
-$$\text{Sector} = \text{Base\_Sector} + (\text{PFN} \ll 3)$$
+$$\text{Sector} = \text{Base Sector} + (\text{PFN} \ll 3)$$
 
 In machine code, this compiles to a single x86-64 `leaq` / shift instruction:
 ```assembly

@@ -10,7 +10,7 @@
 1. **Pure $O(1)$ Stride Page Addressing**:
    - Zero indirection, zero radix-tree or xarray lookups.
    - Any sector maps directly to an aligned 4KB page via arithmetic:
-     $$\text{pgoff} = \text{sector} \gg (\text{PAGE\_SHIFT} - \text{SECTOR\_SHIFT})$$
+     $$\text{pgoff} = \text{sector} \gg (\text{PAGE SHIFT} - \text{SECTOR SHIFT})$$
 
 2. **64-bit Atomic Bitmask Tracking**:
    - Uses atomic bitwise operations (`hmb_bitmask_t`) for instantaneous allocation, tracking, and discard handling.
