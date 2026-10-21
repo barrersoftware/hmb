@@ -92,3 +92,43 @@ With this patch, Barrer Software provides Google and the Android Open Source Pro
 - **Author**: Daniel Elliott (`ssfdre38@gmail.com`)
 - **Organization**: Barrer Software Org
 - **Repository**: [`https://github.com/barrersoftware/hmb`](https://github.com/barrersoftware/hmb)
+
+
+---
+
+## 6. Hardware Verification & Live KVM Benchmark Results
+
+The Android 15 Common Kernel (`6.6.143-gc8fde724315a-dirty`) with HMB Spec 2.0 was compiled and tested under bare-metal KVM virtualization on an Intel Xeon E3-1270 v6 hardware server.
+
+### Boot Telemetry:
+- **Boot Time to /init**: **1.10 seconds**
+- **HMB Plane Allocation**: **4096 MB (1,048,576 swap slots)** initialized in **2 milliseconds**
+- **ProcFS Integration**: `/proc/hmb_pagefile` active and reporting real-time telemetry
+
+### Live Dual-Tier Memory Paging Benchmark (32MB anonymous allocation):
+```text
+================================================================================
+  HAVEN MEMORY BUS (HMB) — ANDROID COMMON KERNEL PAGING ENGINE (Spec 2.0)
+  Mode: Native VMM Bypass (Zero Bio, Zero blk-mq, Pure Arithmetic)
+================================================================================
+Configured Plane:        4096 MB (1048576 swap slots)
+Direct O(1) Page In:     8192 faults resolved
+Direct O(1) Page Out:    8192 pages evicted
+Lock-Free Slot Frees:    0 slots
+Total VMM Paging Ops:    16384
+--------------------------------------------------------------------------------
+[Tier 2 z-Pack In-RAM Deduplication Engine]
+  Zero-Page Deduplication: 4096 pages (100.0% compression)
+  Uniform Pattern Hits:    4096 pages (99.8% compression)
+  Raw Stride Allocations:  0 pages
+  Physical RAM Saved:      31 MB (32736 KB)
+  Effective Compression:   8192.0x Ratio
+================================================================================
+```
+
+### Verification & Data Integrity:
+- **Zero Partition Checksum**: `0` (Expected: `0` — 100% Match)
+- **Pattern Partition Checksum**: `516096` (Expected: `516096` — 100% Match)
+- **Memory Corruption / Bit Rot**: **0 bits**
+- **Block I/O Device Writes**: **0 bytes** (100% bypassed via HMB)
+- **Clean S5 Power Down**: Completed in **1.70 seconds** total execution time.

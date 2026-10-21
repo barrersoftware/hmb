@@ -1,34 +1,3 @@
-From a58b67fe92599be91e8c40399d5b1b1d06b317e7 Mon Sep 17 00:00:00 2001
-From: Daniel Elliott <ssfdre38@gmail.com>
-Date: Wed, 21 Oct 2026 12:24:53 -0700
-Subject: [PATCH] ANDROID: mm: Implement Haven Memory Bus (HMB) zero-bio paging
- engine
-
-Integrate Haven Memory Bus (HMB) Spec 2.0 direct-stride virtual memory
-paging into the Android Common Kernel (ACK) 6.6.
-
-Key Benefits for Android:
-- Zero-Bio Bypass: Eliminates struct bio allocation, blk-mq queueing,
-  and elevator overhead in mm/page_io.c.
-- Tier 2 z-Pack Inline Deduplication: Resolves zero and pattern pages in
-  pure RAM without heavy CPU compression loops.
-- PSI Stall Elimination: Sub-microsecond #PF resolution prevents memory
-  pressure stall spikes, preventing lmkd from killing background apps.
-- Thermal & Battery Conservation: Eliminates CPU thrashing associated
-  with continuous zRAM compression/decompression.
-
-Signed-off-by: Daniel Elliott <ssfdre38@gmail.com>
----
- include/linux/hmb_pagefile.h |  35 ++++
- mm/Kconfig                   |  14 ++
- mm/Makefile                  |   1 +
- mm/hmb_pagefile.c            | 380 +++++++++++++++++++++++++++++++++++
- mm/page_io.c                 |  18 ++
- mm/swapfile.c                |   4 +
- 6 files changed, 452 insertions(+)
- create mode 100644 include/linux/hmb_pagefile.h
- create mode 100644 mm/hmb_pagefile.c
-
 diff --git a/include/linux/hmb_pagefile.h b/include/linux/hmb_pagefile.h
 new file mode 100644
 index 000000000..ed65eb2f8
@@ -111,10 +80,10 @@ index a7f9d4f67..56355274b 100644
 +obj-$(CONFIG_HMB_PAGEFILE) += hmb_pagefile.o
 diff --git a/mm/hmb_pagefile.c b/mm/hmb_pagefile.c
 new file mode 100644
-index 000000000..d2d31235d
+index 000000000..c0abc71b3
 --- /dev/null
 +++ b/mm/hmb_pagefile.c
-@@ -0,0 +1,380 @@
+@@ -0,0 +1,381 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Haven Memory Bus (HMB) Spec 2.0 — Android Common Kernel (ACK) Paging Engine
@@ -131,6 +100,7 @@ index 000000000..d2d31235d
 +#include <linux/module.h>
 +#include <linux/mm.h>
 +#include <linux/swap.h>
++#include <linux/swapops.h>
 +#include <linux/swapfile.h>
 +#include <linux/pagemap.h>
 +#include <linux/highmem.h>
@@ -200,7 +170,7 @@ index 000000000..d2d31235d
 +	if (unlikely(!plane))
 +		return false;
 +
-+	pgoff = folio->index;
++	pgoff = swp_offset(folio->swap);
 +	if (unlikely(pgoff >= plane->total_pages))
 +		return false;
 +
@@ -300,7 +270,7 @@ index 000000000..d2d31235d
 +	if (unlikely(!plane))
 +		return false;
 +
-+	pgoff = folio->index;
++	pgoff = swp_offset(folio->swap);
 +	if (unlikely(pgoff >= plane->total_pages))
 +		return false;
 +
@@ -567,6 +537,3 @@ index 1a8223f97..346ea10df 100644
  		if (swap_slot_free_notify)
  			swap_slot_free_notify(si->bdev, offset);
  		offset++;
--- 
-2.55.0.windows.5
-
