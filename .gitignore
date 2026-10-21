@@ -1,0 +1,29 @@
+# Binaries & build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+*.obj
+*.pdb
+
+# Build output directories
+bin/
+obj/
+build/
+dist/
+target/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# OS artifacts
+.DS_Store
+Thumbs.db

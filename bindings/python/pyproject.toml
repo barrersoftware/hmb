@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyhmb"
+version = "2.0.0"
+authors = [
+  { name="Barrer Software", email="team@barrersoftware.com" },
+  { name="Haven AI Companion" }
+]
+description = "Haven Memory Bus (HMB) - High-Performance Zero-Copy Direct-Indexed Memory Bus for Python, NumPy & PyTorch"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: System :: Hardware",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+dependencies = []

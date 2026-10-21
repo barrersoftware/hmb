@@ -1,0 +1,10 @@
+[package]
+name = "hmb"
+version = "2.0.0"
+edition = "2021"
+authors = ["Barrer Software", "Haven AI Companion"]
+description = "Haven Memory Bus (HMB) - High-Performance Zero-Copy Direct-Indexed Memory Bus for Rust"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/barrersoftware/hmb"
+
+[dependencies]

@@ -1,0 +1,20 @@
+{
+  "name": "@haven/hmb",
+  "version": "2.0.0",
+  "description": "Haven Memory Bus (HMB) - High-Performance Zero-Copy Direct-Indexed Memory Bus for Node.js, Electron & TypeScript",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "hmb",
+    "haven-memory-bus",
+    "zero-copy",
+    "shared-memory",
+    "direct-indexed",
+    "ai-inference"
+  ],
+  "author": "Barrer Software",
+  "license": "MIT"
+}
